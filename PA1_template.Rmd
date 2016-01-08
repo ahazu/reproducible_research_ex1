@@ -17,7 +17,9 @@ To start off we will load the required libraries:
 
 ```{r, echo=TRUE, warning=FALSE, message=FALSE}
 library(lubridate)
+library(timeDate)
 library(stringr)
+library(plyr)
 library(dplyr)
 library(ggplot2)
 
@@ -125,3 +127,76 @@ The activity dataset we are working with currently has many missing values
 sum(is.na(activity$steps))
 ```
 
+We will use the mean steps per interval to fill in for the missing values, and see how this affects our results
+
+```{r, warning=F}
+## Copies activity dataset
+activity_mean_na <- activity
+
+## Replaces all NA values with values from steps_pr_interval matched on interval number
+activity_mean_na$steps[which(is.na(activity_mean_na$steps))] <-
+    steps_pr_interval$meansteps[match(activity_mean_na$interval, 
+                                      steps_pr_interval$interval)]
+```
+
+The updated histogram we get over Frequency of total steps with NAs replaced looks like this:
+
+```{r}
+## Groups to find new total steps pr day
+steps_pr_day_nas_replaced <- group_by(activity_mean_na, 
+                         date) %>% 
+    summarise(totalsteps = sum(steps))
+
+## Creates histogram
+hist(steps_pr_day_nas_replaced$totalsteps, 
+     main = "Frequency of total steps for a day (NAs replaced with means)", 
+     xlab = "Total steps for a day")
+
+```
+
+Let's have a look at how the mean and median values have changed
+
+```{r}
+## Mean steps per day
+mean(steps_pr_day_nas_replaced$totalsteps)
+
+## Median steps per day
+median(steps_pr_day_nas_replaced$totalsteps)
+```
+
+We can see that the mean steps per day has not changed, but the median is now the same as the mean. 
+
+## Differences in activity patterns between weekdays and weekends
+
+In this section we will look at how activity differs between weekdays and weekend
+
+This section will utilize the dataset where NAs are replaced with mean values, as this may provide a more realistic basis for comparison.
+
+```{r}
+## Sets locale so that we get English names of days instead of Norwegian for our plots
+Sys.setlocale("LC_TIME", "C")
+
+## Using the previously created datetime column we can create a new column indicating if we are looking at a weekday or weekend. This creates a column which has true values for dates that are on a weekday
+activity_mean_na$weekday <- isWeekday(activity_mean_na$datetime, 
+                                      wday=1:5)
+
+## We'll relable the true/false values to WEEKEND or WEEKDAY
+activity_mean_na$weekday <- mapvalues(activity_mean_na$weekday, from=c(TRUE, FALSE), to=c("WEEKDAY", "WEEKEND"))
+
+## We'll create a summary grouped by interval and weekdays/weekenda
+steps_pr_interval_nas_replaced <- group_by(activity_mean_na, 
+                              interval,
+                              weekday) %>% 
+    summarise(meansteps = mean(steps))
+
+## We'll plot the data differenciated on weekend/weekdays
+meansteps_plot <- qplot(interval, 
+                        meansteps, 
+                        data=steps_pr_interval_nas_replaced, 
+                        type="line",
+                        ylab = "Mean number of steps", 
+                        xlab = "Interval", 
+                        main = "Average daily activity pattern")
+meansteps_plot + facet_grid(. ~ weekday)
+
+```
