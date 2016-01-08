@@ -1,0 +1,127 @@
+---
+title: "PA1_template"
+author: "Per Rynning"
+date: "7. januar 2016"
+output: html_document
+---
+
+This document details my submission for course project 1 in the Reproducible Research course. 
+
+The goal of the project is to download and analyze Acivity monitoring data and answer the following main questions: 
+
+- What is mean total number of steps taken per day?
+- What is the average daily activity pattern?
+- Are there differences in activity patterns between weekdays and weekends?
+
+To start off we will load the required libraries:
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(lubridate)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+
+```
+
+Next step is to download the data from <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip> unless it is already present in the current working directory.
+
+```{r}
+
+## Downloads dataset if not available in the current folder
+if(!file.exists("repdata-data-activity.zip") && !file.exists("activity.csv")){
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", 
+                  destfile = "repdata-data-activity.zip")
+    
+    dateDownloaded <- date()
+    
+    ##This report was based on data downloaded `r dateDownloaded`.
+    
+    unzip("repdata-data-activity.zip")
+}
+
+```
+
+
+
+We read the data using *read.csv* 
+
+```{r}
+## Reads the data from file
+activity <- read.csv(file = "activity.csv", 
+                     header = T)
+
+```
+
+We create a new column, *datetime*, by combining the *date* and *interval* fields, and convert this so that we have a POSIX date for each entry. 
+
+```{r}
+## Creates datetime column combining date and interval to POSIX date
+activity$datetime <- paste(activity$date, 
+                           str_pad(activity$interval, 
+                                   width = 4, 
+                                   side="left", 
+                                   pad="0"))
+
+activity$datetime <- ymd_hm(activity$datetime)
+```
+
+## Mean total number of steps
+
+To make a histogram of total number of steps pr day we create a new data frame called *steps_pr_day*
+```{r}
+## Finds nr of steps pr day
+
+steps_pr_day <- group_by(activity, 
+                         date) %>% 
+    summarise(totalsteps = sum(steps))
+
+```
+
+We then get this histogram showing total number of steps pr day  and the frequency.
+**Note**: For this part of the exercise we have ignored missing values in the dataset. 
+```{r}
+hist(steps_pr_day$totalsteps, 
+     main = "Frequency of total steps for a day", 
+     xlab = "Total steps for a day")
+
+```
+
+The mean and median steps per day are
+
+```{r}
+## Mean steps per day
+mean(steps_pr_day$totalsteps, na.rm = T)
+
+## Median steps per day
+median(steps_pr_day$totalsteps, na.rm = T)
+```
+
+## Average daily activity pattern
+
+We'd like to see how the average daily activity pattern is. We can do this by grouping the data on the intervals.
+
+```{r}
+steps_pr_interval <- group_by(activity, 
+                              interval) %>% 
+    summarise(meansteps = mean(steps, 
+                               na.rm = T))
+
+## Uses qplot to plot the average daily activity pattern
+qplot(interval, 
+      meansteps, 
+      data = steps_pr_interval, 
+      type="line", 
+      ylab = "Mean number of steps", 
+      xlab = "Interval", 
+      main = "Average daily activity pattern")
+
+```
+
+### Missing values
+The activity dataset we are working with currently has many missing values
+
+```{r}
+## Sums up missing values from activity$steps
+sum(is.na(activity$steps))
+```
+
